@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -14,6 +15,7 @@
 #include <ifaddrs.h>
 #include <pcap.h>
 #include <pthread.h>
+#include <time.h>
 
 pcap_t* cap_handler;
 
@@ -185,7 +187,7 @@ int begin_capturing(char *mac, char *interface)
         printf("Error at loop begin: %s\n", err_buff);
         exit(1);
     }
-
+    pcap_close(cap_handler);
     return 0;
 }
 
@@ -273,9 +275,20 @@ int main(int argc, char const *argv[])
         return 0;
     }
 
-    if (pthread_join(cap_function, NULL))
+    struct timespec countdown;
+    if (clock_gettime(CLOCK_REALTIME, &countdown) == -1)
     {
-        perror("Error waiting for thread: ");
+        perror("Error setting timeout: \n");
+        exit(1);
     }
+    countdown.tv_sec += 15;
+
+    if (pthread_timedjoin_np(cap_function, NULL,&countdown))
+    {
+        printf("Host not found\n");
+        pcap_breakloop(cap_handler);
+        sleep(0.1); // To  assure that the handler is properly closed.
+    }
+
     return 0;
 }
