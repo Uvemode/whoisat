@@ -4,7 +4,6 @@ whoisat is a small tool that given a MAC address returns the IP address assign t
 Therefore, whoisat will only find hosts at the same network as the interface.
 
 whoisat will listen **15 seconds** for the response, after that the program will terminate. You can change this behaviour at **line:**
-
--284
+- 284
 
   Usage: whoisat [MAC] [interface]
