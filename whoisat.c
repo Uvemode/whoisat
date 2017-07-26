@@ -267,7 +267,7 @@ int main(int argc, char const *argv[])
         exit(1);
     }
 
-    sleep(1);
+    sleep(1); // To give the thread enough time to set up.
 
     if (send_packet(thread_args[0], thread_args[1]))
     {
