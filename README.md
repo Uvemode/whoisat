@@ -1,9 +1,6 @@
 # whoisat
 
-whoisat is a small tool that given a MAC address returns the IP address assign to it, as long as the host is in the same network/subnet as you, by sending an ARP packet to the whole network and parsing the MAC source with the selected one.
-Usage: whoisat [MAC] [interface]
+whoisat is a small tool that given a MAC address returns the IP address assign to it by sending an ARP packet to the whole network of the selected interface and looking at the source MAC address of the responses.
+Therefore, whoisat will only find hosts at the same network as the interface.
 
-The MAC address must be all capitalized.
-
-  Disclaimer:
-  whoisat doesn't perform any kind of check on the interface, like datalink, or if the device can be put in promiscous mode.
+  Usage: whoisat [MAC] [interface]
