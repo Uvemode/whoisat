@@ -2,6 +2,8 @@
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <ctype.h>
+#include <errno.h>
 #include <sys/types.h>
 #include <arpa/inet.h>
 #include <sys/ioctl.h>
@@ -17,6 +19,7 @@ pcap_t* cap_handler;
 
 int send_packet(char *mac, char *interface)
 {
+
     struct in_addr self, network, netmask, broadcast, hosts;
     char err_buff[PCAP_ERRBUF_SIZE];
 
@@ -169,39 +172,18 @@ void get_packet(u_char *mac, const struct pcap_pkthdr *header, const u_char *pac
 
 int begin_capturing(char *mac, char *interface)
 {
-    char filter_buffer[BUFSIZ];
     char err_buff[PCAP_ERRBUF_SIZE];
-    pcap_if_t* device_list;
-    pcap_if_t* device;
 
-    if (pcap_findalldevs(&device_list, err_buff) == -1)
-    {
-        printf("Error listing devices, error code: %s\n",err_buff);
-        //error_dialog(err_buff);
-        return 1;
-    }
-
-    while (strcmp(device_list->name,interface) != 0)
-    {
-        if (device_list->next == NULL)
-        {
-            printf("Interface '%s' not found\n",device);
-            //error_dialog(err_buff);
-            return 1;
-        }
-        device_list = device_list->next;
-    }
-
-    cap_handler = pcap_open_live(interface, BUFSIZ, 1, 100, err_buff);
+    cap_handler = pcap_open_live(interface, BUFSIZ, 0, 100, err_buff);
     if (!cap_handler)
     {
          printf("Error creating handler: %s\n",err_buff);
-         return 1;
+         exit(1);
     }
     if (pcap_loop(cap_handler, 0, get_packet, mac) == -1)
     {
         printf("Error at loop begin: %s\n", err_buff);
-        return 1;
+        exit(1);
     }
 
     return 0;
@@ -210,37 +192,83 @@ int begin_capturing(char *mac, char *interface)
 void *cap_thread(void *args)
 {
     char **string_args = args;
-    char *mac = string_args[0];
-    char *interface = string_args[1];
-    if (begin_capturing(mac, interface))
+    if (begin_capturing(string_args[0], string_args[1]))
     {
-        printf("Fail in capture\n");
+        printf("Error at begin_capturing()\n");
     }
 }
 
+int check_interface(char *interface)
+{
+    char err_buff[PCAP_ERRBUF_SIZE];
+    pcap_if_t* device_list;
+    pcap_if_t* device;
+
+    if (pcap_findalldevs(&device_list, err_buff) == -1)
+    {
+        printf("Error listing devices, error code: %s\n",err_buff);
+        //error_dialog(err_buff);
+        exit(1);
+    }
+
+    while (strcmp(device_list->name,interface) != 0)
+    {
+        if (device_list->next == NULL)
+        {
+            return 1;
+        }
+        device_list = device_list->next;
+    }
+    return 0;
+}
 int main(int argc, char const *argv[])
 {
+    if (getuid())
+    {
+        printf("whoisat must be run as root\n");
+        exit(1);
+    }
     if (argc != 3)
     {
         printf("Usage: whoisat [MAC] [interface]\n");
         exit(1);
     }
+    else if ( (strlen(argv[1]) != 17) || argv[1][2] != ':' || argv[1][5] != ':' || argv[1][8] != ':' || argv[1][11] != ':' || argv[1][14] != ':' )
+    {
+        printf("\"%s\" is not a valid MAC address.\nMust be XX:XX:XX:XX:XX:XX.\n",argv[1]);
+        exit(1);
+    }
+
     pthread_t cap_function;
     char *thread_args[2];
     thread_args[0] = strdup(argv[1]);
     thread_args[1] = strdup(argv[2]);
+
+    if (check_interface(thread_args[1]))
+    {
+        printf("\"%s\" interface not found\n", thread_args[1]);
+        exit(1);
+    }
+
+    for (int i = 0; i < strlen(thread_args[0]); i++)
+    {
+        if (!isupper(thread_args[0][i]))
+        {
+            thread_args[0][i] = toupper(thread_args[0][i]);
+        }
+    }
    
     if (pthread_create(&cap_function, NULL, cap_thread, (void*)thread_args))
     {
         perror("Error at thread creation: ");
-        return 0;
+        exit(1);
     }
 
     sleep(1);
 
     if (send_packet(thread_args[0], thread_args[1]))
     {
-        printf("Fail at sending\n");
+        printf("Error at send_packet()\n");
         return 0;
     }
 
