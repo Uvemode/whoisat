@@ -242,16 +242,9 @@ int main(int argc, char const *argv[])
         exit(1);
     }
 
-    pthread_t cap_function;
     char *thread_args[2];
     thread_args[0] = strdup(argv[1]);
     thread_args[1] = strdup(argv[2]);
-
-    if (check_interface(thread_args[1]))
-    {
-        printf("\"%s\" interface not found\n", thread_args[1]);
-        exit(1);
-    }
 
     for (int i = 0; i < strlen(thread_args[0]); i++)
     {
@@ -260,6 +253,26 @@ int main(int argc, char const *argv[])
             thread_args[0][i] = toupper(thread_args[0][i]);
         }
     }
+
+    for (int i = 0; i < strlen(thread_args[0]); i++)
+    {
+        if (thread_args[0][i] != ':')
+        {
+            if ( (thread_args[0][i] < '0' || thread_args[0][i] > 'F') || (thread_args[0][i] > '9' && thread_args[0][i] < 'A') )
+            {
+                printf("\"%s\" is not a valid MAC address.\nMust be XX:XX:XX:XX:XX:XX.\n",argv[1]);
+                exit(1);
+            }
+        }
+    }
+
+    if (check_interface(thread_args[1]))
+    {
+        printf("\"%s\" interface not found\n", thread_args[1]);
+        exit(1);
+    }
+
+    pthread_t cap_function;    
    
     if (pthread_create(&cap_function, NULL, cap_thread, (void*)thread_args))
     {
@@ -267,12 +280,14 @@ int main(int argc, char const *argv[])
         exit(1);
     }
 
-    sleep(1); // To give the thread enough time to set up.
+    sleep(1); // To give the capture enough time to set up.
 
     if (send_packet(thread_args[0], thread_args[1]))
     {
         printf("Error at send_packet()\n");
-        return 0;
+        pcap_breakloop(cap_handler);
+        sleep(0.1); // To  assure that the handler is properly closed.
+        exit(1);
     }
 
     struct timespec countdown;
@@ -287,7 +302,7 @@ int main(int argc, char const *argv[])
     {
         printf("Host not found\n");
         pcap_breakloop(cap_handler);
-        sleep(0.1); // To  assure that the handler is properly closed.
+        sleep(0.1);
     }
 
     return 0;
