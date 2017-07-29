@@ -204,12 +204,10 @@ int check_interface(char *interface)
 {
     char err_buff[PCAP_ERRBUF_SIZE];
     pcap_if_t* device_list;
-    pcap_if_t* device;
 
     if (pcap_findalldevs(&device_list, err_buff) == -1)
     {
         printf("Error listing devices, error code: %s\n",err_buff);
-        //error_dialog(err_buff);
         exit(1);
     }
 
@@ -217,6 +215,7 @@ int check_interface(char *interface)
     {
         if (device_list->next == NULL)
         {
+            printf("Device \"%s\" not found\n", interface);
             return 1;
         }
         device_list = device_list->next;
@@ -268,7 +267,6 @@ int main(int argc, char const *argv[])
 
     if (check_interface(thread_args[1]))
     {
-        printf("\"%s\" interface not found\n", thread_args[1]);
         exit(1);
     }
 
